@@ -383,9 +383,57 @@ def tdidt(current_instances, available_attributes, header, attribute_domain):
             #print(available_attributes)
             subtree = tdidt(partition, available_attributes.copy(),header, attribute_domain)
             values_subtree.append(subtree)
+            tree.append(values_subtree)         
+    return tree
+
+#same as a normal TDIDT but uses random subset of attributes to be chosen from
+def random_forest_tdidt(current_instances, available_attributes, header, attribute_domain, F):
+    # basic approach (uses recursion!!):
+    # select an attribute to split on
+    available_attributes = random_attribute_subset(available_attributes, F)
+    split_attribute = select_attribute(current_instances, available_attributes,header,attribute_domain)
+
+    # remove split attribute from available attributes
+    # because, we can't split on the same attribute twice in a branch
+    available_attributes.remove(split_attribute) # Python is pass by object reference!!
+    tree = ["Attribute", split_attribute]
+
+    # group data by attribute domains (creates pairwise disjoint partitions)
+    partitions = partition_instances(current_instances, split_attribute, header, attribute_domain)
+
+    # for each partition, repeat unless one of the following occurs (base case)
+    for attribute_value, partition in partitions.items():
+        values_subtree = ["Value", attribute_value]
+        #    CASE 1: all class labels of the partition are the same => make a leaf node
+        if len(partition) > 0 and all_same_class(partition):
+            leaf = ["Leaf", partition[0][-1], len(partition), len(current_instances)]
+            values_subtree.append(leaf)
+            tree.append(values_subtree)  
+
+        #    CASE 2: no more attributes to select (clash) => handle clash w/majority vote leaf node
+        elif len(partition) > 0 and len(available_attributes) == 0:
+            val, instances = majority_leaf(partition)
+            #get number of values in the partition. use insted of len(partition)
+            leaf = ["Leaf", val, instances, len(current_instances)]
+            values_subtree.append(leaf)
+            tree.append(values_subtree)  
+
+        #    CASE 3: no more instances to partition (empty partition) => backtrack and replace attribute node with majority vote leaf node
+        elif len(partition) == 0:
+            tree = []
+            #get all the instances of the higher up attribute and use as partition
+            #for the majority leaf and return tree
+            val, instances = majority_leaf(current_instances)
+            leaf = ["Leaf", val, instances, len(current_instances)]
+            return leaf
+
+        else: # all base cases are false, recurse!!
+            subtree = tdidt(partition, available_attributes.copy(),header, attribute_domain)
+            values_subtree.append(subtree)
             tree.append(values_subtree)  
          
     return tree
+
 
 #this funtion is used by the predict fuction in MyDecisionTree
 #it determines which class a single test instance classifies to 
@@ -423,3 +471,53 @@ def print_rules(tree, attribute_names, class_name, rules):
     if tree[0] == "Leaf":
         rules += " THEN "+ str(class_name) +" = "+str(tree[1])
         print(rules)
+
+def bootstrap_sample(X, y, test=.37, train=.63):
+    n = len(X)
+    train = math.ceil(n*train)
+    test = math.floor(n*test)
+    train_set_x = []
+    train_set_y = []
+    test_set_x = []
+    test_set_y = []
+    for _ in range(train):
+        rand_index = random.randrange(train)
+        train_set_x.append(X[rand_index])
+        train_set_y.append(y[rand_index])
+    for _ in range(test):
+        rand_index = random.randrange(test)
+        test_set_x.append(X[rand_index])
+        test_set_y.append(y[rand_index])
+    return [train_set_x,train_set_y], [test_set_x,test_set_y]
+    
+def random_attribute_subset(attributes, F):
+    # shuffle and pick first F
+    shuffled = attributes[:] # make a copy
+    random.shuffle(shuffled)
+    return shuffled[:F]
+
+def majority_rule(data):
+    classes = []
+    num_classes = []
+    for element in data:
+        if not element == [""]:
+            if  not element[-1] in classes:
+                classes.append(element[-1])
+                num_classes.append(1)
+            else:
+                index = classes.index(element[-1])
+                num_classes[index] += 1
+    instances = max(num_classes)
+    index = num_classes.index(instances)
+    return classes[index]
+
+def normailze_wine_score(score):
+    if score >= 95.0:
+        return "Excellent"
+    elif score >= 90.0:
+        return "Great"
+    elif score >= 85.0:
+        return "Good"
+    else:
+        return "OK"
+    
