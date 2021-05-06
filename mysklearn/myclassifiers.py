@@ -359,7 +359,7 @@ class MyDecisionTreeClassifier:
         self.y_train = None
         self.tree = None
 
-    def fit(self, X_train, y_train, F):
+    def fit(self, X_train, y_train):
         """Fits a decision tree classifier to X_train and y_train using the TDIDT (top down induction of decision tree) algorithm.
 
         Args:
@@ -386,10 +386,8 @@ class MyDecisionTreeClassifier:
         available_attributes = header.copy() 
         # initial tdidt() call
         #normal tree function
-        #self.tree = myutils.tdidt(train, available_attributes,header,attribute_domains)
-        #random forest function
-        self.tree = myutils.random_forest_tdidt(train, available_attributes,header,attribute_domains, F)
-        
+        self.tree = myutils.tdidt(train, available_attributes,header,attribute_domains)
+
     def predict(self, X_test):
         """Makes predictions for test instances in X_test.
 
